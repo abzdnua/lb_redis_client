@@ -1,6 +1,6 @@
 const redis = require('redis');
 const logger = require('./lib/logger');
-const { fromString, mergeObjects } = require('./lib/utils');
+const { fromString, mergeObjects, isEmpty } = require('./lib/utils');
 
 let config = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -349,6 +349,44 @@ const getInfo = () =>
     });
   });
 
+const deleteKeysByPattern = pattern => {
+  let total = 0;
+  return new Promise((resolve, reject) => {
+    let scanAsync = cursor =>
+      redisClient.scan(
+        cursor,
+        'MATCH',
+        `${prefix}*${pattern}`,
+        'COUNT',
+        '10000',
+        (err, response) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          let newCursor = response[0];
+          let keys = response[1];
+          if (keys.length !== 0) {
+            total += keys.length;
+
+            redisClient.del(keys, error => {
+              if (error) {
+                console.log('ERR on DELETING KEY', error);
+              }
+            });
+          }
+          if (newCursor === '0') {
+            console.log('Total deleted countyip keys - ', total);
+            resolve();
+            return;
+          }
+          scanAsync(newCursor);
+        }
+      );
+    scanAsync('0');
+  });
+};
+
 /**
  * Get Redis connection instance
  */
@@ -379,5 +417,6 @@ module.exports = {
   removeSetValue,
   deleteKey,
   isValueExistsInSet,
-  isClientReady
+  deleteKeysByPattern,
+  isClientReady,
 };

@@ -69,7 +69,7 @@ const _get = (method, key) =>
     if (!redisReady) {
       return Promise.reject('Redis is not ready');
     }
-    redisClient[method](prefix + key, (err, result) => {
+    redisClient[method](config.dataPrefix + key, (err, result) => {
       if (err) {
         reject(err);
         return;
@@ -354,6 +354,8 @@ const getInfo = () =>
  */
 const getClient = () => redisClient;
 
+const isClientReady = () => redisReady;
+
 module.exports = {
   initialize,
   _get,
@@ -377,4 +379,5 @@ module.exports = {
   removeSetValue,
   deleteKey,
   isValueExistsInSet,
+  isClientReady
 };

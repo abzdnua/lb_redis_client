@@ -43,19 +43,35 @@ const initialize = options =>
     redisClient = createRedisClient(params);
     redisPubSubClient = createRedisClient(params);
     redisClient.on('ready', () => {
-      logger.info('Redis client ready for worker - ', process.pid);
       redisReady = true;
       resolve();
     });
-    redisPubSubClient.on('ready', () =>
-      logger.info('Redis pub/sub client ready for worker - ', process.pid)
-    );
   });
 
 /**
  * Get instance of PubSub redis client
  */
 const getPubSubRedisClient = () => redisPubSubClient;
+
+const waitForConnection = () => {
+  const MAX_WAIT_TIME = 60 * 60 * 1000;
+  let failTimeoutId;
+  return new Promise((resolve, reject) => {
+    failTimeoutId = setTimeout(reject, MAX_WAIT_TIME);
+    const check = callback => {
+      if (isClientReady()) {
+        clearTimeout(failTimeoutId);
+        resolve();
+        console.log('Redis connected');
+      } else {
+        setTimeout(() => {
+          check(callback);
+        }, 1000);
+      }
+    };
+    check(resolve);
+  });
+};
 
 /**
  * Retrieve data from redis data storage using methods for different data types
@@ -65,9 +81,10 @@ const getPubSubRedisClient = () => redisPubSubClient;
  * @private
  */
 const _get = (method, key) =>
-  new Promise((resolve, reject) => {
+  new Promise(async (resolve, reject) => {
     if (!redisReady) {
-      return Promise.reject('Redis is not ready');
+      await waitForConnection();
+      // return Promise.reject('Redis is not ready');
     }
     redisClient[method](config.dataPrefix + key, (err, result) => {
       if (err) {
@@ -88,9 +105,10 @@ const _get = (method, key) =>
  * @private
  */
 const _set = (method, key, value, lifetime) =>
-  new Promise((resolve, reject) => {
+  new Promise(async (resolve, reject) => {
     if (!redisReady) {
-      return Promise.reject('Redis is not ready');
+      await waitForConnection();
+      // return Promise.reject('Redis is not ready');
     }
     let onResult = (err, result) => {
       if (err) {
@@ -356,7 +374,7 @@ const deleteKeysByPattern = pattern => {
       redisClient.scan(
         cursor,
         'MATCH',
-        `${prefix}*${pattern}`,
+        `${config.dataPrefix}*${pattern}`,
         'COUNT',
         '10000',
         (err, response) => {

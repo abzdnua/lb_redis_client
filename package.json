@@ -1,6 +1,6 @@
 {
   "name": "lb_redis_client",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Redis client for LoadBalancer apps",
   "main": "index.js",
   "scripts": {
